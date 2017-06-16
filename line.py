@@ -1,3 +1,5 @@
+import numpy as np
+
 class Line():
     def __init__(self):
         # was the line detected in the last iteration?
@@ -20,3 +22,6 @@ class Line():
         self.allx = None  
         #y values for detected line pixels
         self.ally = None
+
+        self.lane_inds = []
+        self.fit = []
