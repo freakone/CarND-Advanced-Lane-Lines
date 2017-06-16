@@ -21,6 +21,8 @@ class ImageProcessor():
         s_binary = np.zeros_like(s_channel)
         s_binary[(s_channel > thresh_color[0]) & (s_channel <= thresh_color[1])] = 1
 
+        self.s_binary = s_binary
+
         sobelx = cv2.Sobel(s_channel, cv2.CV_64F, 1, 0) # Take the derivative in x
         abs_sobelx = np.absolute(sobelx) # Absolute x derivative to accentuate lines away from horizontal
         scaled_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
@@ -31,6 +33,8 @@ class ImageProcessor():
         combined_binary = np.zeros_like(sxbinary)
         combined_binary[(s_binary == 1) | (sxbinary == 1)] = 1
 
+        self.sxbinary = sxbinary
+        self.combined_binary = combined_binary
         return combined_binary
 
     def overlay_route(self, img, left, right):
@@ -39,6 +43,7 @@ class ImageProcessor():
         pts_right = np.array([np.flipud(np.transpose(np.vstack([right.fitx, right.ploty])))])
         pts = np.hstack((pts_left, pts_right))
         cv2.fillPoly(warp_fill, np.int_([pts]), (255, 0, 0))
+        self.warp_fill = warp_fill
         newwarp = cv2.warpPerspective(warp_fill, self.Minv, (img.shape[1], img.shape[0])) 
         return cv2.addWeighted(img, 1, newwarp, 0.5, 0)
 
@@ -55,10 +60,6 @@ class ImageProcessor():
         leftx_base = np.argmax(histogram[:midpoint])
         rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
-        # Choose the number of sliding windows
-        nwindows = 9
-        # Set height of windows
-        window_height = np.int(self.binary_warped.shape[0]/nwindows)
         # Identify the x and y positions of all nonzero pixels in the image
         nonzero = self.binary_warped.nonzero()
         nonzeroy = np.array(nonzero[0])
@@ -71,7 +72,11 @@ class ImageProcessor():
         # Set minimum number of pixels found to recenter window
         minpix = 50
 
-        if len(left.fit) is 0 and len(right.fit) is 0:
+        if not left.detected or not right.detected:
+            # Choose the number of sliding windows
+            nwindows = 9
+            # Set height of windows
+            window_height = np.int(self.binary_warped.shape[0]/nwindows)
             # Create empty lists to receive left and right lane pixel indices
             left.lane_inds = []
             right.lane_inds = []
@@ -126,23 +131,27 @@ class ImageProcessor():
         out_img[nonzeroy[right.lane_inds], nonzerox[right.lane_inds]] = [0, 0, 255]
 
         y_eval = np.max(left.ploty)
-        left_curverad = ((1 + (2*left.fit[0]*y_eval + left.fit[1])**2)**1.5) / np.absolute(2*left.fit[0])
-        right_curverad = ((1 + (2*right.fit[0]*y_eval + right.fit[1])**2)**1.5) / np.absolute(2*right.fit[0])
-        print(left_curverad, right_curverad)
-
-        # Define conversions in x and y from pixels space to meters
         ym_per_pix = 30/720 # meters per pixel in y dimension
         xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
-        # Fit new polynomials to x,y in world space
         left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
         right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
         # Calculate the new radii of curvature
+        
         left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
         right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
-        # Now our radius of curvature is in meters
-        print(left_curverad, 'm', right_curverad, 'm')
-        # Example values: 632.1 m    626.2 m
+        left.radius_of_curvature = left_curverad
+        right.radius_of_curvature = right_curverad
 
         self.out_img = out_img
+
+        left.detected = True
+        right.detected = True
+
+        if left.radius_of_curvature < 500 or left.radius_of_curvature > 1500:
+            left.detected = False
+        
+        if right.radius_of_curvature < 500 or right.radius_of_curvature > 1500:
+            right.detected = False
+
         return out_img

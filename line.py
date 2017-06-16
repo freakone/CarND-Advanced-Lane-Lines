@@ -16,10 +16,6 @@ class Line():
         self.line_base_pos = None 
         #difference in fit coefficients between last and new fits
         self.diffs = np.array([0,0,0], dtype='float') 
-        #x values for detected line pixels
-        self.allx = None  
-        #y values for detected line pixels
-        self.ally = None
 
         self.lane_inds = []
         self.fit = []  
