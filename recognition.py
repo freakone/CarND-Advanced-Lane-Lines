@@ -25,29 +25,21 @@ right = Line()
 proc = ImageProcessor(mtx, dist, M)
 proc.process_image(img, left, right)
 
-cv2.line(img, src[0], src[1], (255,0,0), 5)
-cv2.line(img, src[1], src[2], (255,0,0), 5)
-cv2.line(img, src[2], src[3], (255,0,0), 5)
-cv2.line(img, src[3], src[0], (255,0,0), 5)
-
-# cv2.line(warped, dst[0], dst[1], (255,0,0), 5)
-# cv2.line(warped, dst[1], dst[2], (255,0,0), 5)
-# cv2.line(warped, dst[2], dst[3], (255,0,0), 5)
-# cv2.line(warped, dst[3], dst[0], (255,0,0), 5)
-
-
 fig = plt.figure()
-a=fig.add_subplot(2,2,1)
+a=fig.add_subplot(2,3,1)
 plt.imshow(img)
-a=fig.add_subplot(2,2,2)
+a=fig.add_subplot(2,3,2)
 plt.imshow(proc.warped)
-a=fig.add_subplot(2,2,3)
+a=fig.add_subplot(2,3,3)
 plt.imshow(proc.binary_warped, cmap='gray')
 
-a=fig.add_subplot(2,2,4)
+a=fig.add_subplot(2,3,4)
 plt.imshow(proc.out_img)
-plt.plot(proc.left_fitx, proc.ploty, color='yellow')
-plt.plot(proc.right_fitx, proc.ploty, color='yellow')
+plt.plot(left.fitx, left.ploty, color='yellow')
+plt.plot(right.fitx, left.ploty, color='yellow')
+
+a=fig.add_subplot(2,3,5)
+plt.imshow(proc.overlay_route(img, left, right))
 
 fig.show()
 input()

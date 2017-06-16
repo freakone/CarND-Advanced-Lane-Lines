@@ -8,6 +8,7 @@ class ImageProcessor():
         self.mtx = mtx
         self.dist = dist
         self.M = M
+        self.Minv = np.linalg.inv(M)
 
         self.warped = []
         self.binary_warped = []
@@ -26,16 +27,20 @@ class ImageProcessor():
 
         sxbinary = np.zeros_like(scaled_sobel)
         sxbinary[(scaled_sobel >= tresh_sobel[0]) & (scaled_sobel <= tresh_sobel[1])] = 1
-
-            # Stack each channel to view their individual contributions in green and blue respectively
-        # This returns a stack of the two binary images, whose components you can see as different colors
         color_binary = np.dstack(( np.zeros_like(sxbinary), sxbinary, s_binary))
-
-        # Combine the two binary thresholds
         combined_binary = np.zeros_like(sxbinary)
         combined_binary[(s_binary == 1) | (sxbinary == 1)] = 1
 
         return combined_binary
+
+    def overlay_route(self, img, left, right):
+        warp_fill = np.copy(self.warped)
+        pts_left = np.array([np.transpose(np.vstack([left.fitx, left.ploty]))])
+        pts_right = np.array([np.flipud(np.transpose(np.vstack([right.fitx, right.ploty])))])
+        pts = np.hstack((pts_left, pts_right))
+        cv2.fillPoly(warp_fill, np.int_([pts]), (255, 0, 0))
+        newwarp = cv2.warpPerspective(warp_fill, self.Minv, (img.shape[1], img.shape[0])) 
+        return cv2.addWeighted(img, 1, newwarp, 0.5, 0)
 
     def process_image(self, img, left, right, thresh_color=(120, 230), tresh_sobel=(20, 100)):
         img = cv2.undistort(img, self.mtx, self.dist, None, self.mtx)
@@ -112,14 +117,15 @@ class ImageProcessor():
         left.fit = np.polyfit(lefty, leftx, 2)
         right.fit = np.polyfit(righty, rightx, 2)
 
-        self.ploty = np.linspace(0, self.binary_warped.shape[0]-1, self.binary_warped.shape[0] )
-        self.left_fitx = left.fit[0]*self.ploty**2 + left.fit[1]*self.ploty + left.fit[2]
-        self.right_fitx = right.fit[0]*self.ploty**2 + right.fit[1]*self.ploty + right.fit[2]
+        left.ploty = np.linspace(0, self.binary_warped.shape[0]-1, self.binary_warped.shape[0] )
+        right.ploty = left.ploty
+        left.fitx = left.fit[0]*left.ploty**2 + left.fit[1]*left.ploty + left.fit[2]
+        right.fitx = right.fit[0]*left.ploty**2 + right.fit[1]*left.ploty + right.fit[2]
 
         out_img[nonzeroy[left.lane_inds], nonzerox[left.lane_inds]] = [255, 0, 0]
         out_img[nonzeroy[right.lane_inds], nonzerox[right.lane_inds]] = [0, 0, 255]
 
-        y_eval = np.max(self.ploty)
+        y_eval = np.max(left.ploty)
         left_curverad = ((1 + (2*left.fit[0]*y_eval + left.fit[1])**2)**1.5) / np.absolute(2*left.fit[0])
         right_curverad = ((1 + (2*right.fit[0]*y_eval + right.fit[1])**2)**1.5) / np.absolute(2*right.fit[0])
         print(left_curverad, right_curverad)

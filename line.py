@@ -10,8 +10,6 @@ class Line():
         self.bestx = None     
         #polynomial coefficients averaged over the last n iterations
         self.best_fit = None  
-        #polynomial coefficients for the most recent fit
-        self.current_fit = [np.array([False])]  
         #radius of curvature of the line in some units
         self.radius_of_curvature = None 
         #distance in meters of vehicle center from the line
@@ -24,4 +22,6 @@ class Line():
         self.ally = None
 
         self.lane_inds = []
-        self.fit = []
+        self.fit = []  
+        self.fitx = []
+        self.ploty = []
