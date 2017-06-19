@@ -36,13 +36,13 @@ For each of those images the following steps are performed:
 With obtained corners list the `calibrateCamera` function can be called.
 Below there is an example of the undistorted image.
 
-![]('./output_images/figure_6.png')
+![](./output_images/figure_6.png)
 
 ### Pipeline (single images)
 
 #### 1. Provide an example of a distortion-corrected image.
 
-![]('./output_images/figure_7.png')
+![](./output_images/figure_7.png)
 
 Image is undistorted by `cv2.undistort` function. File `image_processor.py` line 54.
 
@@ -50,7 +50,7 @@ Image is undistorted by `cv2.undistort` function. File `image_processor.py` line
 
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 17 through 41 in `image_processor.py`). The image is converted to HSV color space. S channel is used for color threshold, V channel is used for gradient threshold.
 
-![]('./output_images/figure_8.png')
+![](./output_images/figure_8.png)
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
@@ -58,7 +58,7 @@ Perspective transform matrix is calculated in `recognition.py` file in lines 18-
 
 `src` and `dst` points were mapped manually on images. Then the transformation is performed in `image_processor.py` file (line 55).
 
-![]('./output_images/figure_1.png')
+![](./output_images/figure_1.png)
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
@@ -67,7 +67,7 @@ For the next frame of the video, the histogram peaks are being searched near pre
 
 Then for each half of the picture is being processed in function `calculate_fit` in `line.py` file. A polyfit function is used for the function approximation for detected points.
 
-![]('./output_images/figure_4.png')
+![](./output_images/figure_4.png)
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to the center.
 
@@ -79,7 +79,7 @@ The polynomial of the detected points has been recalculated with coefficients to
 
 I implemented this step in lines 43 through 51 in my code in `image_processor.py` in the function `overlay_route()`.  Here is an example of my result on a test image:
 
-![]('./output_images/figure_9.png')
+![](./output_images/figure_9.png)
 
 ---
 
@@ -97,7 +97,7 @@ Here's a [link to my video result](./output_images/project_video.mp4)
 
 All steps of the process you can see in the image below.
 
-![]('./output_images/figure_5.png')
+![](./output_images/figure_5.png)
 
 To ensure that the detection process will be flawless and continuous few treatments were done.
 
