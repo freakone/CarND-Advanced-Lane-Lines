@@ -1,19 +1,5 @@
-## Advanced Lane Finding
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
-
-
-In this project, your goal is to write a software pipeline to identify the lane boundaries in a video, but the main output or product we want you to create is a detailed writeup of the project.  Check out the [writeup template](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) for this project and use it as a starting point for creating your own writeup.  
-
-Creating a great writeup:
----
-A great writeup should include the rubric points as well as your description of how you addressed each point.  You should include a detailed description of the code used in each step (with line-number references and code snippets where necessary), and links to other supporting documents or external references.  You should include images in your writeup to demonstrate how your code works with examples.  
-
-All that said, please be concise!  We're not looking for you to write a book here, just a brief description of how you passed each rubric point, and references to the relevant code :). 
-
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup.
-
-The Project
----
+## **Advanced Lane Finding Project**
+### Kamil Górski
 
 The goals / steps of this project are the following:
 
@@ -22,14 +8,101 @@ The goals / steps of this project are the following:
 * Use color transforms, gradients, etc., to create a thresholded binary image.
 * Apply a perspective transform to rectify binary image ("birds-eye view").
 * Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
+* Determine the curvature of the lane and vehicle position with respect to the center.
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-The images for camera calibration are stored in the folder called `camera_cal`.  The images in `test_images` are for testing your pipeline on single frames.  If you want to extract more test images from the videos, you can simply use an image writing method like `cv2.imwrite()`, i.e., you can read the video in frame by frame as usual, and for frames you want to save for later you can write to an image file.  
+## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
-To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `ouput_images`, and include a description in your writeup for the project of what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
+### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
 
-The `challenge_video.mp4` video is an extra (and optional) challenge for you if you want to test your pipeline under somewhat trickier conditions.  The `harder_challenge.mp4` video is another optional challenge and is brutal!
+--
 
-If you're feeling ambitious (again, totally optional though), don't stop there!  We encourage you to go out and take video of your own, calibrate your camera and show us how you would implement this project from scratch!
+### Camera Calibration
+
+#### 1. Briefly, state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
+
+The code for this step is contained in file `camera.py`.
+
+At the beginning, the `objp` variable was defined to store the chessboard corners in global coordinates.
+
+I'm loading the list of calibration images from the `camera_cal` folder.
+For each of those images the following steps are performed:
+* load file
+* convert to grayscale
+* use `findChessboardCorners` function to retrieve the corners.
+* if the corners are successfully retrieved add them to global list
+
+With obtained corners list the `calibrateCamera` function can be called.
+Below there is an example of the undistorted image.
+
+![]('./output_images/figure_6.png')
+
+### Pipeline (single images)
+
+#### 1. Provide an example of a distortion-corrected image.
+
+![]('./output_images/figure_7.png')
+
+Image is undistorted by `cv2.undistort` function. File `image_processor.py` line 54.
+
+#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+
+I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 17 through 41 in `image_processor.py`). The image is converted to HSV color space. S channel is used for color threshold, V channel is used for gradient threshold.
+
+![]('./output_images/figure_8.png')
+
+#### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
+
+Perspective transform matrix is calculated in `recognition.py` file in lines 18-20.
+
+`src` and `dst` points were mapped manually on images. Then the transformation is performed in `image_processor.py` file (line 55).
+
+![]('./output_images/figure_1.png')
+
+#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+
+To detect the lines on warped and filtered image the histogram with detection window was used. The moving windows have been applied to the both halves of the picture, then the peaks in histogram were detected, and indices for peaks was saved to the array.
+For the next frame of the video, the histogram peaks are being searched near previously detected lines (without moving window) to increase performance. These steps are performed in `image_processor.py` lines 58-120.
+
+Then for each half of the picture is being processed in function `calculate_fit` in `line.py` file. A polyfit function is used for the function approximation for detected points.
+
+![]('./output_images/figure_4.png')
+
+#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to the center.
+
+I did this in lines 33 through 35 in my code in `line.py`
+
+The polynomial of the detected points has been recalculated with coefficients to scale the pixel to the real meters.
+
+#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+
+I implemented this step in lines 43 through 51 in my code in `image_processor.py` in the function `overlay_route()`.  Here is an example of my result on a test image:
+
+![]('./output_images/figure_9.png')
+
+---
+
+### Pipeline (video)
+
+#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+
+Here's a [link to my video result](./output_images/project_video.mp4)
+
+---
+
+### Discussion
+
+#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+
+All steps of the process you can see in the image below.
+
+![]('./output_images/figure_5.png')
+
+To ensure that the detection process will be flawless and continuous few treatments were done.
+
+1. Window line detection is skipped only if the line was successfully detected.
+2. The line is detected correctly if has a curvature greater than 400m and lower than 1500m.
+3. The lines are detected correctly if the difference of the curvature is lower than 20% of their average value.
+4. The curvature and pixel polynomial have been filtered with moving average with the window size of 20.
+5. If the polynomial cannot be calculated the measurement is being skipped.

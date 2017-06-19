@@ -1,6 +1,8 @@
 import os.path
 import glob
 import pickle
+import numpy as np
+import cv2
 
 CAL_FILE_NAME = 'cal_data.p'
 
