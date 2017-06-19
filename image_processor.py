@@ -15,15 +15,18 @@ class ImageProcessor():
         self.out_img = []
 
     def hls_select(self, img, thresh_color=(0, 255), tresh_sobel=(0, 255)):
-        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HSV).astype(np.float)
 
-        s_channel = hls[:,:,2]
+        s_channel = hls[:,:,1]        
+        l_channel = hls[:,:,2]
+
         s_binary = np.zeros_like(s_channel)
         s_binary[(s_channel > thresh_color[0]) & (s_channel <= thresh_color[1])] = 1
 
+        self.s_channel = s_channel
         self.s_binary = s_binary
 
-        sobelx = cv2.Sobel(s_channel, cv2.CV_64F, 1, 0) # Take the derivative in x
+        sobelx = cv2.Sobel(l_channel, cv2.CV_64F, 1, 0) # Take the derivative in x
         abs_sobelx = np.absolute(sobelx) # Absolute x derivative to accentuate lines away from horizontal
         scaled_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
 
@@ -33,16 +36,16 @@ class ImageProcessor():
         combined_binary = np.zeros_like(sxbinary)
         combined_binary[(s_binary == 1) | (sxbinary == 1)] = 1
 
+        self.l_channel = l_channel
         self.sxbinary = sxbinary
-        self.combined_binary = combined_binary
         return combined_binary
 
     def overlay_route(self, img, left, right):
-        warp_fill = np.copy(self.warped)
+        warp_fill = np.zeros_like(self.warped).astype(np.uint8)
         pts_left = np.array([np.transpose(np.vstack([left.fitx, left.ploty]))])
         pts_right = np.array([np.flipud(np.transpose(np.vstack([right.fitx, right.ploty])))])
         pts = np.hstack((pts_left, pts_right))
-        cv2.fillPoly(warp_fill, np.int_([pts]), (255, 0, 0))
+        cv2.fillPoly(warp_fill, np.int_([pts]), (0, 0, 255))
         self.warp_fill = warp_fill
         newwarp = cv2.warpPerspective(warp_fill, self.Minv, (img.shape[1], img.shape[0])) 
         return cv2.addWeighted(img, 1, newwarp, 0.5, 0)
@@ -89,10 +92,7 @@ class ImageProcessor():
                 win_xleft_low = leftx_current - margin
                 win_xleft_high = leftx_current + margin
                 win_xright_low = rightx_current - margin
-                win_xright_high = rightx_current + margin
-                # Draw the windows on the visualization image
-                cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
-                cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
+                win_xright_high = rightx_current + margin                
                 # Identify the nonzero pixels in x and y within the window
                 good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
                 good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
@@ -109,49 +109,28 @@ class ImageProcessor():
             left.lane_inds = np.concatenate(left.lane_inds)
             right.lane_inds = np.concatenate(right.lane_inds)
         else:
-            left.lane_inds = ((nonzerox > (left.fit[0]*(nonzeroy**2) + left.fit[1]*nonzeroy + left.fit[2] - margin)) & (nonzerox < (left.fit[0]*(nonzeroy**2) + left.fit[1]*nonzeroy + left.fit[2] + margin))) 
-            right.lane_inds = ((nonzerox > (right.fit[0]*(nonzeroy**2) + right.fit[1]*nonzeroy + right.fit[2] - margin)) & (nonzerox < (right.fit[0]*(nonzeroy**2) + right.fit[1]*nonzeroy + right.fit[2] + margin)))  
-
-        # Extract left and right line pixel positions
-        leftx = nonzerox[left.lane_inds]
-        lefty = nonzeroy[left.lane_inds] 
-        rightx = nonzerox[right.lane_inds]
-        righty = nonzeroy[right.lane_inds] 
-
-        # Fit a second order polynomial to each
-        left.fit = np.polyfit(lefty, leftx, 2)
-        right.fit = np.polyfit(righty, rightx, 2)
-
+            left_fit = left.get_from_history(left.fit_pix)
+            left.lane_inds = ((nonzerox > (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] - margin)) & (nonzerox < (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] + margin))) 
+            right_fit = left.get_from_history(right.fit_pix)
+            right.lane_inds = ((nonzerox > (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] - margin)) & (nonzerox < (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] + margin))) 
+        
+        left.shape = self.binary_warped.shape
+        right.shape = self.binary_warped.shape
         left.ploty = np.linspace(0, self.binary_warped.shape[0]-1, self.binary_warped.shape[0] )
         right.ploty = left.ploty
-        left.fitx = left.fit[0]*left.ploty**2 + left.fit[1]*left.ploty + left.fit[2]
-        right.fitx = right.fit[0]*left.ploty**2 + right.fit[1]*left.ploty + right.fit[2]
+
+        try:
+            left.calculate_fit(nonzero)
+            right.calculate_fit(nonzero)
+        except:
+            print("No route found")
 
         out_img[nonzeroy[left.lane_inds], nonzerox[left.lane_inds]] = [255, 0, 0]
         out_img[nonzeroy[right.lane_inds], nonzerox[right.lane_inds]] = [0, 0, 255]
-
-        y_eval = np.max(left.ploty)
-        ym_per_pix = 30/720 # meters per pixel in y dimension
-        xm_per_pix = 3.7/700 # meters per pixel in x dimension
-
-        left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
-        right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
-        # Calculate the new radii of curvature
-        
-        left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
-        right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
-        left.radius_of_curvature = left_curverad
-        right.radius_of_curvature = right_curverad
-
         self.out_img = out_img
 
-        left.detected = True
-        right.detected = True
-
-        if left.radius_of_curvature < 500 or left.radius_of_curvature > 1500:
-            left.detected = False
-        
-        if right.radius_of_curvature < 500 or right.radius_of_curvature > 1500:
+        if abs(right.radius_of_curvature - left.radius_of_curvature) > abs(right.radius_of_curvature + left.radius_of_curvature / 2) * 0.2:
             right.detected = False
+            left.detected = False
 
         return out_img
